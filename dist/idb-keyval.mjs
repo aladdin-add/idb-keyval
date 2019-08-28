@@ -21,16 +21,23 @@ class Store {
     }
 }
 let store;
+const cache = Object.create(null); // in-mem-cache
 function getDefaultStore() {
     if (!store)
         store = new Store();
     return store;
 }
-function get(key, store = getDefaultStore()) {
+function get(key, store = getDefaultStore(), options = { cached: true, }) {
+    if (typeof key === 'string' && cache[key] !== null && cache[key] !== void 0) {
+        return Promise.resolve(cache[key]);
+    }
     let req;
     return store._withIDBStore('readonly', store => {
         req = store.get(key);
-    }).then(() => req.result);
+    }).then(() => {
+        (key === 'string') && (cache[key] = req.result);
+        return req.result;
+    });
 }
 function set(key, value, store = getDefaultStore()) {
     return store._withIDBStore('readwrite', store => {

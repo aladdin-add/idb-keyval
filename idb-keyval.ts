@@ -1,5 +1,6 @@
 export class Store {
   readonly _dbp: Promise<IDBDatabase>;
+  
 
   constructor(dbName = 'keyval-store', readonly storeName = 'keyval') {
     this._dbp = new Promise((resolve, reject) => {
@@ -25,21 +26,29 @@ export class Store {
 }
 
 let store: Store;
+const cache = Object.create(null); // in-mem-cache
 
 function getDefaultStore() {
   if (!store) store = new Store();
   return store;
 }
 
-export function get<Type>(key: IDBValidKey, store = getDefaultStore()): Promise<Type> {
+export function get<Type>(key: IDBValidKey, store = getDefaultStore(), options = {cached: true,}): Promise<Type> {
+  if(options.cached === true && typeof key === 'string' && cache[key] !== null && cache[key] !== void 0) {
+    return Promise.resolve(cache[key]);
+  }
   let req: IDBRequest;
   return store._withIDBStore('readonly', store => {
     req = store.get(key);
-  }).then(() => req.result);
+  }).then(() => {
+    (key === 'string') && (cache[key] = req.result);
+    return req.result;
+  });
 }
 
 export function set(key: IDBValidKey, value: any, store = getDefaultStore()): Promise<void> {
   return store._withIDBStore('readwrite', store => {
+    (key === 'string') && (cache[key] = value);
     store.put(value, key);
   });
 }
